@@ -59,25 +59,12 @@ public class SQLExpression
         String trimmedExpression = expression.trim();
         String operator = null;
 
-        // order matters here!
-        if (trimmedExpression.indexOf(SQLOperator.gte) != -1)
-            operator = SQLOperator.gte;
-        else if (trimmedExpression.indexOf(SQLOperator.lte) != -1)
-            operator = SQLOperator.lte;
-        else if (trimmedExpression.indexOf(SQLOperator.neq) != -1)
-            operator = SQLOperator.neq;
-        else if (trimmedExpression.indexOf(SQLOperator.neq2) != -1)
-            operator = SQLOperator.neq2;
-        else if (trimmedExpression.indexOf(SQLOperator.eq) != -1)
-            operator = SQLOperator.eq;
-        else if (trimmedExpression.indexOf(SQLOperator.gt) != -1)
-            operator = SQLOperator.gt;
-        else if (trimmedExpression.indexOf(SQLOperator.lt) != -1)
-            operator = SQLOperator.lt;
-        else
+        operator = SQLOperator.parseOperatorFromFragmentStr(trimmedExpression);
+
+        if (operator == null)
             throw new SQLException("Invalid logical operator found: " + trimmedExpression);
 
-        String splitedsqlexp[] = trimmedExpression.split(operator);
+        String splitedsqlexp[] = trimmedExpression.split("(?i)"+operator);
 
         if (splitedsqlexp.length != 2) // something went wrong, only the operator was found?
             throw new SQLException("Invalid SQL Where clause found around: " + expression);
@@ -94,11 +81,6 @@ public class SQLExpression
     public ExpressionType getExpressionType()
     {
         return type;
-    }
-
-    public String getPrefixParent()
-    {
-        return prefix.getParent();
     }
 
     public String getPrefixValue()
@@ -144,11 +126,6 @@ public class SQLExpression
     public String getPostfixValue()
     {
         return postfix.getValue();
-    }
-
-    public String getPostfixParent()
-    {
-        return postfix.getParent();
     }
 
     public void setPostfix(String postfixstr)
@@ -248,10 +225,10 @@ public class SQLExpression
     {
         if (type == ExpressionType.LOGICAL_EXPRESSION_TYPE)
         {
-            if (postfix.getType() == FragmentType.FIELD_TYPE)
+            if (postfix.getType() == FragmentType.FIELD_TYPE || postfix.getType() == FragmentType.FIELD_CONTENT_MODIFIER || postfix.getType() == FragmentType.AGGREGATE_FUNCTION)
                 postfix.updateFragmentColumParent(sqlTables);
 
-            if (prefix.getType() == FragmentType.FIELD_TYPE)
+            if (prefix.getType() == FragmentType.FIELD_TYPE || prefix.getType() == FragmentType.FIELD_CONTENT_MODIFIER)
                 prefix.updateFragmentColumParent(sqlTables);
         }
     }
@@ -271,5 +248,18 @@ public class SQLExpression
             postfix.setValue(SQLParser.parameterizedPrefix + currentIndex++);
 
         return currentIndex;
+    }
+
+    public boolean containsKey(String colname)
+    {
+        if (getExpressionType() == ExpressionType.LOGICAL_EXPRESSION_TYPE)
+        {
+            if(getPrefixType() == FragmentType.FIELD_TYPE && getPrefixValue().equals(colname) ||
+               getPostfixType() == FragmentType.FIELD_TYPE && getPostfixValue().equals(colname))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
