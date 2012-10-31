@@ -18,88 +18,171 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package org.hpccsystems.jdbcdriver;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.regex.Pattern;
 
 
 public class SQLOperator
 {
-    private static List<String> validOps;
+    public enum OPERATOR_TYPE
+    {
+        UNKNOWN,
+        PRE_UNARY,
+        POST_UNARY,
+        NOOPTRUE,
+        NOOPFALSE,
+        BINARY;
+    }
+
+    private static HashMap<String, OPERATOR_TYPE> validOps;
 
     // When adding a new operator, make sure to add it to validOps array
     public static final String  eq        = new String("=");
     public static final String  neq       = new String("<>");
     public static final String  neq2      = new String("!=");
-    public static final String  isNull    = new String(" IS NULL ");
-    public static final String  isNotNull = new String(" IS NOT NULL ");
+    public static final String  isNull    = new String(" IS NULL");
+    public static final String  isNotNull = new String(" IS NOT NULL");
     public static final String  gt        = new String(">");
     public static final String  lt        = new String("<");
     public static final String  gte       = new String(">=");
     public static final String  lte       = new String("<=");
     public static final String  and       = new String(" AND ");
     public static final String  or        = new String(" OR ");
-    public static final String  not       = new String(" NOT ");
-    public static final String  exists    = new String(" EXISTS ");
-    public static final String  like      = new String(" LIKE ");
+    //public static final String  not       = new String(" NOT ");
+    //public static final String  exists    = new String(" EXISTS ");
+    //public static final String  like      = new String(" LIKE ");
     public static final String  in        = new String(" IN ");
     public static final String  notIn     = new String(" NOT IN ");
 
+
+
+    public final static String ISNULLSPLITPATTERN = "\\s+(?i)IS\\s+(?i)NULL\\s*";
+    public final static String ISNOTNULLSPLITPATTERN = "\\s+(?i)IS\\s+(?i)NOT\\s+(?i)NULL\\s*";
+    public final static String ANDSPLITPATTERN = "\\s+(?i)AND\\s+";
+    public final static String ORSPLITPATTERN = "\\s+(?i)OR\\s+";
+    public final static String NOTSPLITPATTERN = "\\s+(?i)NOT\\s+";
+    //public final static String EXISTSSPLITPATTERN = "\\s+(?i)EXISTS\\s*";
+    //public final static String LIKESPLITPATTERN = "\\s+(?i)LIKE\\s*";
+    public final static String INSPLITPATTERN = "\\s+(?i)IN\\s+";
+    public final static String NOTINSPLITPATTERN = "\\s+(?i)NOT\\s+(?i)IN\\s*";
+
+    private final static Pattern ISNULLPATTERN = Pattern.compile(
+            "(.?)+"+ISNULLSPLITPATTERN,Pattern.DOTALL);
+
+    private final static Pattern ISNOTNULLPATTERN = Pattern.compile(
+            "(.?)+"+ISNOTNULLSPLITPATTERN,Pattern.DOTALL);
+
+    private final static Pattern ANDPATTERN = Pattern.compile(
+            "(.?){1}"+ANDSPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
+    private final static Pattern ORPATTERN = Pattern.compile(
+            "(.?){1}"+ORSPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
+    //private final static Pattern NOTPATTERN = Pattern.compile(
+    //        NOTSPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
+    //private final static Pattern EXISTSPATTERN = Pattern.compile(
+    //        EXISTSSPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
+    //private final static Pattern LIKEPATTERN = Pattern.compile(
+    //        LIKESPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
+    private final static Pattern INPATTERN = Pattern.compile(
+        "(.?)+"+INSPLITPATTERN+"(.?)+",Pattern.DOTALL);
+
+    private final static Pattern NOTINPATTERN = Pattern.compile(
+            "(.?){1}"+NOTINSPLITPATTERN+"(.?){1}",Pattern.DOTALL);
+
     static
     {
-        validOps = new ArrayList<String>();
-        validOps.add(eq);
-        validOps.add(neq);
-        validOps.add(neq2);
-        validOps.add(isNull);
-        validOps.add(isNotNull);
-        validOps.add(gt);
-        validOps.add(lt);
-        validOps.add(gte);
-        validOps.add(lte);
-        validOps.add(and);
-        validOps.add(or);
-        validOps.add(not);
-        validOps.add(exists);
-        validOps.add(like);
-        validOps.add(in);
-        validOps.add(notIn);
+        validOps = new HashMap<String, SQLOperator.OPERATOR_TYPE>();
+
+        validOps.put(eq, OPERATOR_TYPE.BINARY);
+        validOps.put(neq, OPERATOR_TYPE.BINARY);
+        validOps.put(neq2, OPERATOR_TYPE.BINARY);
+        //validOps.put(isNull, OPERATOR_TYPE.PRE_UNARY);
+        //validOps.put(isNotNull, OPERATOR_TYPE.PRE_UNARY);
+        validOps.put(isNull, OPERATOR_TYPE.NOOPFALSE);
+        validOps.put(isNotNull, OPERATOR_TYPE.NOOPTRUE);
+        validOps.put(gt, OPERATOR_TYPE.BINARY);
+        validOps.put(lt, OPERATOR_TYPE.BINARY);
+        validOps.put(gte, OPERATOR_TYPE.BINARY);
+        validOps.put(lte, OPERATOR_TYPE.BINARY);
+        validOps.put(and, OPERATOR_TYPE.BINARY);
+        validOps.put(or, OPERATOR_TYPE.BINARY);
+        //validOps.put(not, OPERATOR_TYPE.PRE_UNARY);
+        //validOps.put(exists, OPERATOR_TYPE.PRE_UNARY);
+        //validOps.put(like, OPERATOR_TYPE.BINARY);
+        validOps.put(in, OPERATOR_TYPE.BINARY);
+        validOps.put(notIn, OPERATOR_TYPE.BINARY);
     }
 
-    private final String        value;
+    private final String    value;
+    private OPERATOR_TYPE   type;
+    private String          splitPattern = null;
 
-    public SQLOperator(String operator)
+    public SQLOperator(String fragment)
     {
-        if (validOps.contains(operator.toUpperCase()))
-            value = operator.toUpperCase();
+        String upperFragment = fragment.toUpperCase();
+
+        if (validOps.containsKey(upperFragment))
+        {
+            value = upperFragment;
+            type = validOps.get(value);
+        }
         else
-            value = null;
-    }
+        {
+            if (upperFragment.indexOf(SQLOperator.gte) != -1)
+                value = SQLOperator.gte;
+            else if (upperFragment.indexOf(SQLOperator.lte) != -1)
+                value = SQLOperator.lte;
+            else if (upperFragment.indexOf(SQLOperator.neq) != -1)
+                value = SQLOperator.neq;
+            else if (upperFragment.indexOf(SQLOperator.neq2) != -1)
+                value = SQLOperator.neq2;
+            else if (upperFragment.indexOf(SQLOperator.eq) != -1)
+                value = SQLOperator.eq;
+            else if (upperFragment.indexOf(SQLOperator.gt) != -1)
+                value = SQLOperator.gt;
+            else if (upperFragment.indexOf(SQLOperator.lt) != -1)
+                value = SQLOperator.lt;
+            else if (ANDPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = ANDSPLITPATTERN;
+                value = SQLOperator.and;
+            }
+            else if (ORPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = ORSPLITPATTERN;
+                value = SQLOperator.or;
+            }
+            else if (ISNOTNULLPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = ISNOTNULLSPLITPATTERN;
+                value = SQLOperator.isNotNull;
+            }
+            else if (ISNULLPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = ISNULLSPLITPATTERN;
+                value = SQLOperator.isNull;
+            }
+            else if (NOTINPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = NOTINSPLITPATTERN;
+                value = SQLOperator.notIn;
+            }
+            else if (INPATTERN.matcher(upperFragment).matches())
+            {
+                splitPattern = INSPLITPATTERN;
+                value = SQLOperator.in;
+            }
 
-    static public String parseOperatorFromFragmentStr(String fragment)
-    {
-        String trimmedFragment = fragment.trim();
-        String operator = null;
+            else
+                value = null;
+        }
 
-        if (trimmedFragment.indexOf(SQLOperator.gte) != -1)
-            operator = SQLOperator.gte;
-        else if (trimmedFragment.indexOf(SQLOperator.lte) != -1)
-            operator = SQLOperator.lte;
-        else if (trimmedFragment.indexOf(SQLOperator.neq) != -1)
-            operator = SQLOperator.neq;
-        else if (trimmedFragment.indexOf(SQLOperator.neq2) != -1)
-            operator = SQLOperator.neq2;
-        else if (trimmedFragment.indexOf(SQLOperator.eq) != -1)
-            operator = SQLOperator.eq;
-        else if (trimmedFragment.indexOf(SQLOperator.gt) != -1)
-            operator = SQLOperator.gt;
-        else if (trimmedFragment.indexOf(SQLOperator.lt) != -1)
-            operator = SQLOperator.lt;
-        else if (trimmedFragment.toUpperCase().indexOf(SQLOperator.notIn) != -1)
-            operator = SQLOperator.notIn;
-        else if (trimmedFragment.toUpperCase().indexOf(SQLOperator.in) != -1)
-            operator = SQLOperator.in;
-
-        return operator;
+        if (value != null)
+            type = validOps.get(value);
     }
 
     public String getValue()
@@ -107,9 +190,23 @@ public class SQLOperator
         return value;
     }
 
+    public boolean isBinary()
+    {
+        return type == OPERATOR_TYPE.BINARY;
+    }
+
+    public OPERATOR_TYPE getType()
+    {
+        return type;
+    }
     public boolean isValid()
     {
-        return validOps.contains(value);
+        return validOps.containsKey(value);
+    }
+
+    public String [] splitExpressionFragment(String fragment)
+    {
+        return fragment.split(splitPattern == null ? value : splitPattern);
     }
 
     @Override

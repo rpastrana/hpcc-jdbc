@@ -794,6 +794,10 @@ public class HPCCDriverTest
                     params, true, 1, "encapsulated where clause with IN () operator");
 
             executeFreeHandSQL(propsinfo,
+                    "select  peeps.gender, peeps.firstname, peeps.lastname from progguide::exampledata::people peeps where ( peeps.firstname NOT IN ('TIMTOHY') ) limit 100 ",
+                    params, true, 1, "encapsulated where clause with NOT IN () operator");
+
+            executeFreeHandSQL(propsinfo,
                     "select  peeps.gender, peeps.firstname, peeps.lastname from progguide::exampledata::people peeps where ( peeps.firstname IN ('TIMTOHY')  limit 100 ",
                     params, false, 0, "invalid encapsulated where clause missing ) ");
 
@@ -802,8 +806,16 @@ public class HPCCDriverTest
                     params, false, 0, "2 invalid encapsulated where clause missing ) ");
 
             executeFreeHandSQL(propsinfo,
-                    "select  peeps.gender, peeps.firstname, peeps.lastname from tutorial::rp::tutorialperson as persons, progguide::exampledata::people peeps where  persons.firstname = peeps.firstname and persons.city  > upper('delray') limit 100",
+                    "select  peeps.gender, peeps.firstname, peeps.lastname from tutorial::rp::tutorialperson as persons, progguide::exampledata::people peeps where  persons.firstname = peeps.firstname and persons.city  = upper('delray beach') limit 100",
                     params, true, 1, "implicit join");
+
+            executeFreeHandSQL(propsinfo,
+                    "select  peeps.gender, peeps.firstname, peeps.lastname from tutorial::rp::tutorialperson as persons, progguide::exampledata::people peeps where  persons.firstname = peeps.firstname and persons.city is not null limit 100",
+                    params, true, 1, "implicit join IS NOT NULL filter");
+
+            executeFreeHandSQL(propsinfo,
+                    "select  peeps.gender, peeps.firstname, peeps.lastname from tutorial::rp::tutorialperson as persons, progguide::exampledata::people peeps where  persons.firstname = peeps.firstname and persons.city is null limit 100",
+                    params, true, 0, "implicit join IS NULL filter");
 
             executeFreeHandSQL(propsinfo,
                     "select  peeps.gender, peeps.firstname, peeps.lastname from tutorial::rp::tutorialperson as persons, progguide::exampledata::people peeps outer join  tutorial::rp::tutorialperson as people2 on people2.firstname = persons.firstname where  persons.firstname = peeps.firstname and persons.city  > upper('delray') limit 100",

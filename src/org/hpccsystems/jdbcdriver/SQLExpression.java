@@ -57,25 +57,24 @@ public class SQLExpression
     public void ParseExpression(String expression) throws SQLException
     {
         String trimmedExpression = expression.trim();
-        String operator = null;
+        SQLOperator operator = new SQLOperator(trimmedExpression);
 
-        operator = SQLOperator.parseOperatorFromFragmentStr(trimmedExpression);
-
-        if (operator == null)
+        if (operator == null || operator.getValue() == null || !operator.isValid())
             throw new SQLException("Invalid logical operator found: " + trimmedExpression);
 
-        String splitedsqlexp[] = trimmedExpression.split("(?i)"+operator);
-
-        if (splitedsqlexp.length != 2) // something went wrong, only the operator was found?
-            throw new SQLException("Invalid SQL Where clause found around: " + expression);
+        String splitedsqlexp[] = operator.splitExpressionFragment(trimmedExpression);
 
         setPrefix(splitedsqlexp[0].trim());
 
         setOperator(operator);
-        if (!isOperatorValid())
-            throw new SQLException("Error: Invalid operator found: ");
 
-        setPostfix(splitedsqlexp[1].trim());
+        if (operator.isBinary())
+        {
+            if (splitedsqlexp.length == 2)
+                setPostfix(splitedsqlexp[1].trim());
+            else
+                throw new SQLException("Invalid SQL Where clause found around: " + expression);
+        }
     }
 
     public ExpressionType getExpressionType()
@@ -157,7 +156,24 @@ public class SQLExpression
     public String toString()
     {
         if (type == ExpressionType.LOGICAL_EXPRESSION_TYPE)
-            return prefix.getValue() + " " + operator.toString() + " " + postfix.getValue();
+        {
+            switch (operator.getType())
+            {
+                case BINARY:
+                    return prefix.getValue() + " " + operator.toString() + " " + postfix.getValue();
+                case PRE_UNARY:
+                    return " " + operator.toString() + " " + prefix.getValue() + " ";
+                case POST_UNARY:
+                    return " " + prefix.getValue() + " "+ operator.toString() + " ";
+                case NOOPFALSE:
+                    return " false ";
+                case NOOPTRUE:
+                    return " true ";
+                case UNKNOWN:
+                default:
+                    return "";
+            }
+        }
         else if (type == ExpressionType.LOGICAL_OPERATOR_TYPE)
             return " " + operator.toString() + " ";
         else
@@ -167,7 +183,24 @@ public class SQLExpression
     public String fullToString()
     {
         if (type == ExpressionType.LOGICAL_EXPRESSION_TYPE)
-            return getFullPrefix() + " " + operator.toString() + " " + getFullPostfix();
+        {
+            switch (operator.getType())
+            {
+                case BINARY:
+                    return getFullPrefix() + " " + operator.toString() + " " + getFullPostfix();
+                case PRE_UNARY:
+                    return " " + operator.toString() + " " + getFullPrefix() + " ";
+                case POST_UNARY:
+                    return " " + getFullPrefix() + " "+ operator.toString() + " ";
+                case NOOPFALSE:
+                    return " false ";
+                case NOOPTRUE:
+                    return " true ";
+                case UNKNOWN:
+                default:
+                    return this.toString();
+            }
+        }
         else
             return this.toString();
     }
@@ -179,31 +212,72 @@ public class SQLExpression
             StringBuffer tmpsb = new StringBuffer();
 
             String prefixtranslate = map.get(prefix.getParent());
-            String postfixtranslate = map.get(postfix.getParent());
 
-            if (prefixtranslate != null)
+            switch (operator.getType())
             {
-                tmpsb.append(prefixtranslate);
-                tmpsb.append(".");
-            }
-            else if (prefix.getParent() != null && prefix.getParent().length() > 0)
-            {
-                tmpsb.append(prefix.getParent());
-                tmpsb.append(".");
-            }
+                case BINARY:
+                    String postfixtranslate = map.get(postfix.getParent());
+                    if (prefixtranslate != null)
+                    {
+                        tmpsb.append(prefixtranslate);
+                        tmpsb.append(".");
+                    }
+                    else if (prefix.getParent() != null && prefix.getParent().length() > 0)
+                    {
+                        tmpsb.append(prefix.getParent());
+                        tmpsb.append(".");
+                    }
 
-            tmpsb.append(prefix.getValue()).append(" ").append(operator.toString()).append(" ");
-            if (postfixtranslate != null)
-            {
-                tmpsb.append(postfixtranslate);
-                tmpsb.append(".");
+                    tmpsb.append(prefix.getValue()).append(" ").append(operator.toString()).append(" ");
+                    if (postfixtranslate != null)
+                    {
+                        tmpsb.append(postfixtranslate);
+                        tmpsb.append(".");
+                    }
+                    else if (postfix.getParent() != null && postfix.getParent().length() > 0)
+                    {
+                        tmpsb.append(postfix.getParent());
+                        tmpsb.append(".");
+                    }
+                    tmpsb.append(postfix.getValue());
+                    break;
+                case PRE_UNARY:
+                    tmpsb.append(" ").append(operator.toString()).append(" ");
+                    if (prefixtranslate != null)
+                    {
+                        tmpsb.append(prefixtranslate);
+                        tmpsb.append(".");
+                    }
+                    else if (prefix.getParent() != null && prefix.getParent().length() > 0)
+                    {
+                        tmpsb.append(prefix.getParent());
+                        tmpsb.append(".");
+                    }
+                    tmpsb.append(prefix.getValue()).append(" ");
+                    break;
+                case POST_UNARY:
+                    if (prefixtranslate != null)
+                    {
+                        tmpsb.append(prefixtranslate);
+                        tmpsb.append(".");
+                    }
+                    else if (prefix.getParent() != null && prefix.getParent().length() > 0)
+                    {
+                        tmpsb.append(prefix.getParent());
+                        tmpsb.append(".");
+                    }
+
+                    tmpsb.append(prefix.getValue()).append(" ");
+                    tmpsb.append(operator.toString()).append(" ");
+
+                    break;
+                case NOOPFALSE:
+                    tmpsb.append(" false ");
+                    break;
+                case NOOPTRUE:
+                    tmpsb.append(" true ");
+                    break;
             }
-            else if (postfix.getParent() != null && postfix.getParent().length() > 0)
-            {
-                tmpsb.append(postfix.getParent());
-                tmpsb.append(".");
-            }
-            tmpsb.append(postfix.getValue());
 
             return tmpsb.toString();
         }

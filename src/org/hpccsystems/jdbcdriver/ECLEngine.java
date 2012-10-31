@@ -362,7 +362,7 @@ public class ECLEngine
                             cntdedupstr.append(", ");
                             cntdedupstr.append(paramname);
                         }
-                        cntdedupstr.append(", HASH);\n");
+                        cntdedupstr.append(", ALL);\n");
                         eclEntities.put("COUNTDEDUP", cntdedupstr.toString());
                     }
 
