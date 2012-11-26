@@ -291,6 +291,7 @@ public class SQLParser
                 {
                     String splittablebyblank[] = splittablefromalias[0].trim().split("\\s+");
                     queryTable = new SQLTable(HPCCJDBCUtils.handleQuotedString(splittablebyblank[0]));
+
                     if (splittablebyblank.length == 2) //Blank space(s) found, table name and alias detected.
                         queryTable.setAlias(HPCCJDBCUtils.handleQuotedString(splittablebyblank[1]));
                     else if (splittablebyblank.length > 2) //Too many breaks found.
