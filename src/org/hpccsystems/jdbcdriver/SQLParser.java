@@ -883,6 +883,7 @@ public class SQLParser
             }
 
             fieldName = HPCCJDBCUtils.handleQuotedString(colsplit[1]);
+
         }
         else if (colsplit.length > 2)
             throw new SQLException("Invalid column found: " + fieldName);
