@@ -47,7 +47,8 @@ public class HPCCJDBCUtils
     private static FileHandler fHandler = null;
 
     private static HPCCJDBCLogFormatter formatter = new HPCCJDBCLogFormatter();
-    public static Logger logger = Logger.getLogger("org.hpccsystems.jdbcdriver");
+    private final static Logger logger = Logger.getLogger("org.hpccsystems.jdbcdriver");
+
     static
     {
         try
@@ -121,7 +122,16 @@ public class HPCCJDBCUtils
         }
     }
 
-    public static NumberFormat format       = NumberFormat.getInstance(Locale.US);
+    public static final ThreadLocal <NumberFormat> NUMFORMATTER =
+            new ThreadLocal <NumberFormat>()
+            {
+                @Override
+                protected NumberFormat initialValue()
+                {
+                    return NumberFormat.getInstance(Locale.US);
+                }
+            };
+
     static final char          pad          = '=';
     static final char          BASE64_enc[] =
                                             { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
@@ -274,7 +284,7 @@ public class HPCCJDBCUtils
     {
         try
         {
-            format.parse(str);
+            NUMFORMATTER.get().parse(str);
         }
         catch (Exception e)
         {
@@ -327,7 +337,7 @@ public class HPCCJDBCUtils
     {
         try
         {
-            Number num = format.parse(str);
+            Number num = NUMFORMATTER.get().parse(str);
             return num.longValue();
         }
         catch (Exception e)
@@ -340,7 +350,7 @@ public class HPCCJDBCUtils
     {
         try
         {
-            Number num = format.parse(str);
+            Number num = NUMFORMATTER.get().parse(str);
             return num.intValue();
         }
         catch (Exception e)
@@ -448,7 +458,7 @@ public class HPCCJDBCUtils
         return replaced;
     }
 
-    private static HashMap<String, Integer> mapECLTypeNameToSQLType = new HashMap<String, Integer>();
+    public final static HashMap<String, Integer> mapECLTypeNameToSQLType = new HashMap<String, Integer>();
     static
     {
         mapECLTypeNameToSQLType.put("BOOLEAN", java.sql.Types.BOOLEAN);
@@ -475,8 +485,8 @@ public class HPCCJDBCUtils
         mapECLTypeNameToSQLType.put("REAL", java.sql.Types.REAL);
     }
 
-    private static Pattern TRAILINGNUMERICPATTERN = Pattern.compile(
-            "(.*\\s+?)*([A-Z]+)([0-9]+(_[0-9]+)?)*",Pattern.DOTALL);
+    public final static Pattern TRAILINGNUMERICPATTERN = Pattern.compile(
+            "(.*\\s+?)*([A-Z]+)(([0-9]+)(_([0-9]+))?)*",Pattern.DOTALL);
 
     public static int mapECLtype2SQLtype(String ecltype)
     {
@@ -680,5 +690,24 @@ public class HPCCJDBCUtils
     public static boolean isBooleanKeyWord(String str)
     {
        return BOOLEANPATTERN.matcher(str).matches();
+    }
+
+    public final static HashMap<Integer, Integer> mapSQLTypeToPrecedence = new HashMap<Integer, Integer>();
+    static
+    {
+        int precedence = Integer.MAX_VALUE;
+        mapSQLTypeToPrecedence.put(java.sql.Types.DOUBLE, precedence--);
+        mapSQLTypeToPrecedence.put(java.sql.Types.REAL, precedence--);
+        mapSQLTypeToPrecedence.put(java.sql.Types.DECIMAL, precedence--);
+        mapSQLTypeToPrecedence.put(java.sql.Types.INTEGER, precedence--);
+        mapSQLTypeToPrecedence.put(java.sql.Types.SMALLINT, precedence--);
+    }
+
+    public static int getNumericSqlTypePrecedence(int sqlType)
+    {
+        if (mapSQLTypeToPrecedence.containsKey(sqlType))
+            return mapSQLTypeToPrecedence.get(sqlType);
+        else
+            return Integer.MIN_VALUE;
     }
 }

@@ -315,8 +315,9 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
                                 else if (elem.getNodeName().equals("ColumnType"))
                                     columntype = elem.getTextContent();
                             }
-                            HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(columname.toUpperCase(), 0,
-                                    HPCCJDBCUtils.mapECLtype2SQLtype(columntype));
+
+                            HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(columname.toUpperCase(), 0, java.sql.Types.OTHER);
+                            elemmeta.setEclType(columntype);
                             elemmeta.setTableName(tablename);
                             elemmeta.setParamType(procedureColumnOut);
                             try
@@ -366,8 +367,8 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
                                 else if (elem.getNodeName().equals("ColumnType"))
                                     columntype = elem.getTextContent();
                             }
-                            HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(columname, i + 1,
-                                    HPCCJDBCUtils.mapECLtype2SQLtype(columntype.toUpperCase()));
+                            HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(columname, i + 1,java.sql.Types.OTHER);
+                            elemmeta.setEclType(columntype);
                             elemmeta.setTableName(query.getName());
                             elemmeta.setParamType(procedureColumnIn);
                             try
@@ -2105,15 +2106,15 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
                                 }
                                 else if (NodeName.equals("Totalsize"))
                                 {
-                                    file.setTotalSize(HPCCJDBCUtils.format.parse(currentTextCont).longValue());
+                                    file.setTotalSize(HPCCJDBCUtils.NUMFORMATTER.get().parse(currentTextCont).longValue());
                                 }
                                 else if (NodeName.equals("RecordCount"))
                                 {
-                                    file.setRecordCount(HPCCJDBCUtils.format.parse(currentTextCont).longValue());
+                                    file.setRecordCount(HPCCJDBCUtils.NUMFORMATTER.get().parse(currentTextCont).longValue());
                                 }
                                 else if (NodeName.equals("LongSize"))
                                 {
-                                    file.setLongSize(HPCCJDBCUtils.format.parse(currentTextCont).longValue());
+                                    file.setLongSize(HPCCJDBCUtils.NUMFORMATTER.get().parse(currentTextCont).longValue());
                                 }
                                 else if (NodeName.equals("LongRecordCount"))
                                 {
@@ -2579,6 +2580,7 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
         catch (Exception e)
         {
             HPCCJDBCUtils.traceoutln(Level.SEVERE,  "Could not fetch HPCC info.");
+            HPCCJDBCUtils.traceoutln(Level.ALL,  e.getMessage());
             return false;
         }
 
