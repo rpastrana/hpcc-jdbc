@@ -44,6 +44,8 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.hpccsystems.jdbcdriver.DFUFile.FileFormat;
 import org.hpccsystems.jdbcdriver.HPCCJDBCUtils.EclTypes;
+import org.hpccsystems.ws.client.platform.Cluster;
+import org.hpccsystems.ws.client.platform.Platform;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -57,6 +59,7 @@ import org.xml.sax.SAXException;
 
 public class HPCCDatabaseMetaData implements DatabaseMetaData
 {
+    private Platform                    hpccPlatform                = null;
     private HPCCQueries                 eclqueries;
     private HPCCLogicalFiles            dfufiles;
     private List<String>                targetclusters;
@@ -104,6 +107,7 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
     public HPCCDatabaseMetaData(Properties props)
     {
         super();
+        this.hpccPlatform = Platform.get(false, "192.168.56.120", 8010);
         this.serverAddress = props.getProperty("ServerAddress", HPCCDriver.SERVERADDRESSDEFAULT);
         this.targetcluster = props.getProperty("TargetCluster", HPCCDriver.CLUSTERDEFAULT);
         this.queryset = props.getProperty("QuerySet", HPCCDriver.QUERYSETDEFAULT);
@@ -2559,7 +2563,8 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
 
     private boolean fetchClusterInfo()
     {
-        if (basewseclwatchurl == null)
+        //if (basewseclwatchurl == null)
+        if (hpccPlatform == null)
             return false;
 
         if (targetclusters.size() > 0)
@@ -2570,6 +2575,15 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
 
         try
         {
+            Cluster[] clusters = hpccPlatform.getClusters();
+            
+            for (int i = 0; i < clusters.length; i++)
+            {
+                targetclusters.add(clusters[i].getName());
+                //Cluster clusterElements = clusters[i];
+                //System.out.println(clusterElements.getName());
+            }
+/*
             String urlString = basewseclwatchurl
                     + "/WsTopology/TpTargetClusterQuery?Type=ROOT&rawxml_&ShowDetails=0";
 
@@ -2594,7 +2608,7 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
                         break;
                     }
                 }
-            }
+            }*/
         }
         catch (Exception e)
         {
@@ -2986,6 +3000,12 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
 
     public boolean isTargetHPCCReachable(int timeout)
     {
+        if (hpccPlatform == null)
+            return false;
+        else
+            return hpccPlatform.pingServer("", "");
+
+        /*
         if (basewseclwatchurl == null)
             return false;
 
@@ -3021,6 +3041,7 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
         }
 
         return true;
+        */
     }
 
     public boolean hasHPCCTargetBeenReached()

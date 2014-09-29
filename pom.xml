@@ -235,6 +235,11 @@
 			<artifactId>antlr-runtime</artifactId>
 			<version>${antlr.runtime.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.hpccsystems.hpccjapi</groupId>
+			<artifactId>wsclient</artifactId>
+			<version>0.2-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 
 </project>
