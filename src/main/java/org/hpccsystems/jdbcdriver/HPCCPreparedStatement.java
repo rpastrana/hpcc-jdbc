@@ -40,8 +40,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.logging.Level;
 
 import org.hpccsystems.jdbcdriver.SQLParser.SQLType;

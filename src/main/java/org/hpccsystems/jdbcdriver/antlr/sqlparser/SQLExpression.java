@@ -33,8 +33,6 @@ import org.hpccsystems.jdbcdriver.SQLTable;
 import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLBinaryExpression.SQLBinaryExpressionType;
 import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLUnaryExpression.SQLUnaryExpressionType;
 import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLValueExpression.SQLValueType;
-import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLExpressionLexer;
-import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLExpressionParser;
 
 
 public abstract class SQLExpression

@@ -229,7 +229,12 @@
 		</pluginManagement>
 	</build>
 
-	<dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.hpccsystems.hpccjapi</groupId>
+            <artifactId>wsclient</artifactId>
+            <version>0.2-SNAPSHOT</version>
+        </dependency>
 		<dependency>
 			<groupId>org.antlr</groupId>
 			<artifactId>antlr-runtime</artifactId>

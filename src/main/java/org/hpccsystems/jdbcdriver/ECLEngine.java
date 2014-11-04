@@ -20,6 +20,7 @@ package org.hpccsystems.jdbcdriver;
 
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -42,10 +43,14 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.hpccsystems.jdbcdriver.HPCCColumnMetaData.ColumnType;
 import org.hpccsystems.jdbcdriver.SQLParser.SQLType;
+import org.hpccsystems.ws.client.HPCCWsWorkUnitsClient;
+import org.hpccsystems.ws.client.platform.Platform;
+import org.hpccsystems.ws.client.platform.WorkunitInfo;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 public class ECLEngine
 {
@@ -58,6 +63,8 @@ public class ECLEngine
 
     private StringBuilder           eclCode;
     private URL                     hpccRequestUrl;
+    private WorkunitInfo            hpccWURequest;
+
     private ArrayList<HPCCColumnMetaData> storeProcInParams = null;
     private String[]                    procInParamValues = null;
     private List<HPCCColumnMetaData>    expectedretcolumns = null;
@@ -98,21 +105,6 @@ public class ECLEngine
         }
     }
 
-    public NodeList executeSelectConstant()
-    {
-        try
-        {
-            long startTime = System.currentTimeMillis();
-
-            HttpURLConnection conn = dbMetadata.createHPCCESPConnection(hpccRequestUrl);
-
-            return parseDataset(conn.getInputStream(), startTime);
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
-    }
 
     private void generateSelectECL() throws SQLException
     {
@@ -702,27 +694,25 @@ public class ECLEngine
     {
         eclCode = new StringBuilder("");
         hpccRequestUrl = null;
+        hpccWURequest = new WorkunitInfo();
 
         switch (sqlParser.getSqlType())
         {
             case SELECT:
             {
                 generateSelectECL();
-                generateSelectURL();
-
+                populateSelectRequest();
                 break;
             }
             case SELECTCONST:
             {
                 generateConstSelectECL();
-                generateConstSelectURL();
-
+                populateSelectRequest();
                 break;
             }
             case  CALL:
             {
-                hpccPublishedQuery =
-                        dbMetadata.getHpccQuery(HPCCJDBCUtils.handleQuotedString(sqlParser.getStoredProcName()));
+                hpccPublishedQuery = dbMetadata.getHpccQuery(HPCCJDBCUtils.handleQuotedString(sqlParser.getStoredProcName()));
 
                 if (hpccPublishedQuery != null)
                 {
@@ -739,11 +729,9 @@ public class ECLEngine
                     int inParamValuesCount = procInParamValues == null ? 0 : procInParamValues.length;
 
                     if (inParamValuesCount != storeProcInParams.size())
-                        //throw new SQLException(hpccPublishedQuery.getName() + " expects "+ storeProcInParams.size() + " input parameters, " + " received " + inParamValuesCount);
                         HPCCJDBCUtils.traceoutln(Level.WARNING,  "WARNING: " + hpccPublishedQuery.getID() + " expects "+ storeProcInParams.size() + " input parameter(s), " + " received " + inParamValuesCount);
 
                     generateCallURL();
-
                 }
                 else
                     throw new SQLException("Invalid Stored Procedure found, verify name and QuerySet: " + sqlParser.getStoredProcName());
@@ -776,34 +764,6 @@ public class ECLEngine
         HPCCJDBCUtils.traceoutln(Level.INFO, "HPCC URL created: " + urlString);
     }
 
-    private void generateConstSelectURL() throws SQLException
-    {
-        String urlString;
-
-        try
-        {
-            urlString = hpccConnProps.getProperty("WsECLDirectAddress") + ":"
-                    + hpccConnProps.getProperty("WsECLDirectPort") + "/EclDirect/RunEcl?Submit";
-
-            if (hpccConnProps.containsKey("TargetCluster"))
-            {
-                urlString += "&cluster=";
-                urlString += hpccConnProps.getProperty("TargetCluster");
-            }
-            else
-                HPCCJDBCUtils.traceoutln(Level.INFO,  "No cluster property found, executing query on EclDirect default cluster");
-
-            urlString += "&eclText=";
-            urlString += URLEncoder.encode(eclCode.toString(), "UTF-8");
-            hpccRequestUrl = HPCCJDBCUtils.makeURL(urlString);
-        }
-        catch (Exception e)
-        {
-            throw new SQLException(e.getMessage());
-        }
-        HPCCJDBCUtils.traceoutln(Level.INFO,  "HPCC URL created: " + urlString);
-    }
-
     private void generateConstSelectECL()
     {
         eclCode.append("SelectStruct:=RECORD ");
@@ -827,26 +787,10 @@ public class ECLEngine
         expectedDSName = SELECTOUTPUTNAME;
     }
 
-    private void generateSelectURL() throws SQLException
+    private void populateSelectRequest() throws SQLException
     {
-        try
-        {
-            String urlString = hpccConnProps.getProperty("WsECLDirectAddress") + ":"
-                    + hpccConnProps.getProperty("WsECLDirectPort") + "/EclDirect/RunEcl?Submit";
-
-            if (hpccConnProps.containsKey("TargetCluster"))
-                urlString += "&cluster=" + hpccConnProps.getProperty("TargetCluster");
-            else
-                HPCCJDBCUtils.traceoutln(Level.INFO,  "No cluster property found, executing query on EclDirect default cluster");
-
-            hpccRequestUrl = HPCCJDBCUtils.makeURL(urlString);
-
-            HPCCJDBCUtils.traceoutln(Level.INFO,  "HPCC URL created: " + urlString);
-        }
-        catch (Exception e)
-        {
-            throw new SQLException(e.getMessage());
-        }
+        if (hpccConnProps.containsKey("TargetCluster"))
+            hpccWURequest.setCluster(hpccConnProps.getProperty("TargetCluster"));
     }
 
     public NodeList execute(Map inParameters) throws Exception
@@ -854,12 +798,9 @@ public class ECLEngine
         switch (sqlParser.getSqlType())
         {
             case SELECT:
-            {
-                return executeSelect(inParameters);
-            }
             case SELECTCONST:
             {
-                return executeSelectConstant();
+                return executeSelect(inParameters);
             }
             case CALL:
             {
@@ -874,8 +815,7 @@ public class ECLEngine
 
     public boolean processIndex(DFUFile indexfiletouse, StringBuilder keyedandwild)
     {
-        boolean isPayloadIndex =
-                containsPayload(indexfiletouse.getAllFieldsProps(), sqlParser.getSelectColumns().iterator());
+        boolean isPayloadIndex = containsPayload(indexfiletouse.getAllFieldsProps(), sqlParser.getSelectColumns().iterator());
 
         Vector<String> keyed = new Vector<String>();
         Vector<String> wild = new Vector<String>();
@@ -886,7 +826,6 @@ public class ECLEngine
         {
             String keyedcolname = (String) keyedcols.get(i);
             if (sqlParser.whereClauseContainsKey(keyedcolname))
-
                 keyed.add(" " + sqlParser.getExpressionFromColumnName(keyedcolname) + " ");
             else if (keyed.isEmpty())
                 wild.add(" " + keyedcolname + " ");
@@ -944,10 +883,8 @@ public class ECLEngine
         return true;
     }
 
-    public NodeList executeSelect(Map inParameters)
+    public NodeList executeSelect(Map inParameters) throws Exception
     {
-        int responseCode = -1;
-
         try
         {
             StringBuilder sb = new StringBuilder();
@@ -1062,28 +999,22 @@ public class ECLEngine
             sb.append(eclCode.toString());
             sb.append("\n");
 
+            Platform hpccPlatform = dbMetadata.getHPCCPlatform();
+
+            HPCCWsWorkUnitsClient wsWorkunitsClient = hpccPlatform.getWsWorkunitsClient();
+
+            hpccWURequest.setECL(eclCode.toString());
+
             long startTime = System.currentTimeMillis();
-
-            HttpURLConnection conn = dbMetadata.createHPCCESPConnection(hpccRequestUrl);
-
             HPCCJDBCUtils.traceoutln(Level.INFO,  "Executing ECL: " + sb);
-            OutputStreamWriter wr = new OutputStreamWriter(conn.getOutputStream());
-            wr.write(sb.toString());
-            wr.flush();
+            String createAndRunWUFromECLAndGetResults = wsWorkunitsClient.createAndRunWUFromECLAndGetResults(hpccWURequest);
 
-            responseCode = conn.getResponseCode();
-
-            return parseDataset(conn.getInputStream(), startTime);
+            return parseDataset(createAndRunWUFromECLAndGetResults, startTime);
         }
         catch (Exception e)
         {
-            if (responseCode != 200)
-            {
-                throw new RuntimeException("HTTP Connection Response code: " + responseCode
-                        + "\nVerify access to WsECLDirect: " + hpccRequestUrl, e);
-            }
-            else
-                throw new RuntimeException(e);
+            HPCCJDBCUtils.traceoutln(Level.SEVERE,  "Could not execute ECL: " + e.getLocalizedMessage());
+            throw e;
         }
     }
 
@@ -1217,13 +1148,17 @@ public class ECLEngine
         }
     }
 
-    public NodeList parseDataset(InputStream xml, long startTime) throws Exception
+    //InputSource inputSource = new InputSource( new StringReader( myString ) );
+    public NodeList parseDataset(String xml, long startTime) throws Exception
+    {
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document dom = db.parse(new InputSource( new StringReader( xml ) ));
+        return parseDataset(dom, startTime);
+    }
+
+    public NodeList parseDataset(Document dom, long startTime) throws Exception
     {
         NodeList rowList = null;
-
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        Document dom = db.parse(xml);
-
         long elapsedTime = System.currentTimeMillis() - startTime;
 
         HPCCJDBCUtils.traceoutln(Level.INFO, "Total elapsed http request/response time in milliseconds: " + elapsedTime);
@@ -1246,8 +1181,7 @@ public class ECLEngine
             {
                 Element ds = (Element) dsList.item(i);
                 String currentdatsetname = ds.getAttribute("name");
-                if (expectedDSName == null || expectedDSName.length() == 0
-                        || currentdatsetname.equalsIgnoreCase(expectedDSName))
+                if (expectedDSName == null || expectedDSName.length() == 0 || currentdatsetname.equalsIgnoreCase(expectedDSName))
                 {
                     rowList = ds.getElementsByTagName("Row");
                     break;
@@ -1268,8 +1202,7 @@ public class ECLEngine
                     Node exceptionelement = currexceptionelements.item(j);
                     if (exceptionelement.getNodeName().equals("Message"))
                     {
-                        resexception = new Exception("HPCCJDBC: Error in response: \'"
-                                + exceptionelement.getTextContent() + "\'");
+                        resexception = new Exception("HPCCJDBC: Error in response: \'" + exceptionelement.getTextContent() + "\'");
                     }
                 }
                 if (dsList == null || dsList.getLength() <= 0)
@@ -1287,6 +1220,13 @@ public class ECLEngine
         HPCCJDBCUtils.traceoutln(Level.INFO,  "Finished Parsing results.");
 
         return rowList;
+    }
+
+    public NodeList parseDataset(InputStream xml, long startTime) throws Exception
+    {
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        Document dom = db.parse(xml);
+        return parseDataset(dom, startTime);
     }
 
     public boolean hasResultSchema()

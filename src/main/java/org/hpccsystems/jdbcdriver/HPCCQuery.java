@@ -22,6 +22,11 @@ import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+
+import org.hpccsystems.ws.client.gen.wsworkunits.v1_46.ECLResult;
+import org.hpccsystems.ws.client.gen.wsworkunits.v1_46.ECLSchemaItem;
+import org.hpccsystems.ws.client.gen.wsworkunits.v1_46.ECLWorkunit;
 
 public class HPCCQuery
 {
@@ -251,5 +256,71 @@ public class HPCCQuery
             return false;
 
         return true;
+    }
+
+    public void registerQueryDetails(ECLWorkunit wu) //rodrigo let's change this name, and in fact, this should be in the query class not here
+    {
+        int resultsCount = wu.getResultCount();
+        if (resultsCount > 0)
+        {
+            ECLResult[] results = wu.getResults();
+
+            for (int i = 0; i < resultsCount; i++)
+            {
+                ECLResult currentresult = results[i];
+                String tablename = currentresult.getName();// rodrigo this is not right... giving me "Result 1"
+                addResultDataset(tablename);
+
+                ECLSchemaItem[] schemaitems = currentresult.getECLSchemas();
+
+                for (int x = 0; x < schemaitems.length; x++)
+                {
+                    ECLSchemaItem eclSchemaItem = schemaitems[x];
+
+                    HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(eclSchemaItem.getColumnName().toUpperCase(), 0, java.sql.Types.OTHER);
+                    elemmeta.setEclType(eclSchemaItem.getColumnType());
+                    elemmeta.setTableName(tablename);
+                    elemmeta.setParamType(java.sql.DatabaseMetaData.procedureColumnOut);
+
+                    try
+                    {
+                        addResultElement(elemmeta);
+                    }
+                    catch (Exception e)
+                    {
+                        HPCCJDBCUtils.traceoutln(Level.SEVERE,  "Could not add dataset element: " + tablename + ":" + elemmeta.getColumnName());
+                    }
+                }
+            }
+        }
+
+        int variableCount = wu.getVariableCount();
+        if (variableCount > 0)
+        {
+            ECLResult[] variables = wu.getVariables();
+            for (int i = 0; i < variableCount; i++)
+            {
+                ECLResult currentresult = variables[i];
+                String inParam = "";
+
+                 ECLSchemaItem[] eclSchemas = currentresult.getECLSchemas();
+
+                for (int x = 0; x < eclSchemas.length; x++)
+                {
+                    HPCCColumnMetaData elemmeta = new HPCCColumnMetaData(eclSchemas[x].getColumnName(), i + 1,java.sql.Types.OTHER);
+                    elemmeta.setEclType(eclSchemas[x].getColumnType());
+                    elemmeta.setTableName(getName());
+                    elemmeta.setParamType(java.sql.DatabaseMetaData.procedureColumnIn);
+                    try
+                    {
+                        addResultElement(elemmeta);
+                    }
+                    catch (Exception e)
+                    {
+                        HPCCJDBCUtils.traceoutln(Level.SEVERE,  "Could not add dataset element: " + inParam + ":" + elemmeta.getColumnName());
+                    }
+                }
+            }
+        }
     }
 }

@@ -880,5 +880,4 @@ public class DFUFile
     {
         return hasKeyedFieldInfoBeenSet;
     }
-
 }
