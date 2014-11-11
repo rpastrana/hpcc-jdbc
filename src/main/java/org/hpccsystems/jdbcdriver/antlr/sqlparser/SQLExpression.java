@@ -34,7 +34,6 @@ import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLBinaryExpression.SQLBinaryE
 import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLUnaryExpression.SQLUnaryExpressionType;
 import org.hpccsystems.jdbcdriver.antlr.sqlparser.SQLValueExpression.SQLValueType;
 
-
 public abstract class SQLExpression
 {
     /*

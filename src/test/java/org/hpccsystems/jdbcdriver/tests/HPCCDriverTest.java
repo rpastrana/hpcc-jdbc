@@ -909,6 +909,5 @@ public class HPCCDriverTest
                 System.out.println("\n HPCC Driver test completed- 0 statement executed.");
             }
         }
-
     }
 }

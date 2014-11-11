@@ -2251,7 +2251,7 @@ public class HPCCDatabaseMetaData implements DatabaseMetaData
         if (hpccPlatform == null)
             return false;
 
-        hpccVersion = hpccPlatform.getBuildVersion();
+        hpccVersion = hpccPlatform.getVersion();
 
         return true;
     }
