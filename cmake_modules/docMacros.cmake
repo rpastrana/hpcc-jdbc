@@ -24,7 +24,7 @@ MACRO(RUN_XSLTPROC _xsl _file _out _in_dir _out_dir )
 	SET(_out_dir ${_out_dir})
 	
 		SET(_xslt_target ${ARGN})
-		SET(xinclude "--xinclude")
+		SET(xinclude "-xinclude")
 	
 	CONFIGURE_FILE(${HPCC_SOURCE_DIR}/docs/BuildTools/xsltproc.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${_out}.cmake @ONLY)
 	ADD_CUSTOM_COMMAND(
